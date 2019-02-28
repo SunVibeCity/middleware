@@ -1,0 +1,10 @@
+{
+  "action" : "fokBid",
+  "amount" : "3",
+  "created" : 1551302649170,
+  "kind" : "book",
+  "price" : "22000",
+  "status" : "pending",
+  "symbol" : "SVT",
+  "user" : "pnOGb8UgzeY5RmdBiv5SsmISPe22"
+}
