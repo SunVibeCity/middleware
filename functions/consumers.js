@@ -20,8 +20,12 @@ class Consumers  {
     const activity = Object.assign({}, content, append);
     activity.created = Date.now();
     delete activity.user;
-    console.log('activity:', activity);
-    return ref.parent.parent.child('activity').child(content.user).push(activity);
+    //console.log('activity:', activity);
+    return ref.parent.parent.child('activity').child(content.user).push(activity, (error) => {
+      if (error) {
+        console.error('User activity logging failed abnormally!', error);
+      }
+    });
   }
 
   /**
@@ -34,15 +38,22 @@ class Consumers  {
       const userInfo = userSnp.val();
       // console.log(userInfo);
       // console.log(snapshot.val());
-      this._addUserActivity(snapshot, {status:'OK'}).then( () => {
+      this._addUserActivity(snapshot, {status:'Done'}).then( () => {
         userInfo.wallet[currency] = Number(userInfo.wallet[currency]) + Number(amount);
-        ref.parent.parent.child('account').child(user).update(userInfo);
-        ref.remove();
+        ref.parent.parent.child('account').child(user).update(userInfo).catch((reason) => {
+          console.error("User update has failed!", reason, userInfo);
+        });
+        ref.remove().catch((reason) => {
+          console.error("Remove message has failed!", reason);
+        });
       });
+    }).catch((reason) => {
+      console.error("User has not found!", reason);
     });
   }
 
   /**
+   * Arranges data in database, but do not handles or triggers trading transaction.
    * @var snapshot firebase.database.DataSnapshot
    */
   _actionSVTBid(snapshot) {
@@ -54,39 +65,60 @@ class Consumers  {
       console.log(snapshot.val());
       let error = null;
 
+      if (userInfo === null) {
+        console.error("User has not found!", snapshot.val());
+        return ref.update({status:'error', error:'User has not found!'}).catch((reason) => {
+          console.error("Message update has failed!", reason, snapshot.val());
+        });
+      }
+      if (userInfo.wallet === null || userInfo.wallet[currency] === null) {
+        error = 'User wallet not found';
+      }
       if (Number(amount) <= 0) {
         error = 'Amount must be more than 0';
-      } else if ((Number(amount) * Number(currency)) > Number(userInfo.wallet[currency])) {
+      }
+      if (Number(amount) * Number(price) > Number(userInfo.wallet[currency])) {
         error = 'Insufficient found';
       }
       if (error !== null) {
         // console.error(`\t${error}`, userInfo, snapshot.val());
         this._addUserActivity(snapshot, {status:'error', error: error}).then( () => {
-          ref.remove();
+          ref.remove().catch((reason) => {
+            console.error("Remove message has failed!", reason);
+          });
         });
       } else {
-        // ref.parent.parent.child('bids').child(user).push({
-        //   bidder: user,
-        //   price: price,
-        //   amount: amount,
-        //   currency: currency,
-        //   created: Date.now()
-        // }).then( () => {
-        //   this._addUserActivity(snapshot, {status:'OK'}).then( () => {
-        //     userInfo.wallet[currency] = Number(userInfo.wallet[currency]) + Number(amount);
-        //     ref.parent.parent.child('account').child(user).update(userInfo);
-        //     ref.remove();
-        //   });
-        // });
+        ref.parent.parent.child('bids').child(user).push({
+          bidder: user,
+          price: price,
+          amount: amount,
+          currency: currency,
+          status: 'open',
+          created: Date.now()
+        }, (error) => {
+          if (error) {
+            console.error('Bid creation failed abnormally!', error);
+          } else {
+            this._addUserActivity(snapshot, {status:'open'}).then( () => {
+              ref.parent.parent.child(`account/${user}/wallet/${currency}`).transaction(
+                (walletAmount) => {
+                  return Number(walletAmount) - Number(amount) * Number(price);
+                }, (error) => {
+                  if (error) {
+                    console.error('Transaction failed abnormally!', error);
+                  } else {
+                    ref.remove().catch((reason) => {
+                      console.error("Remove message has failed!", reason);
+                    });
+                  }
+                }
+              );
+            });
+          }
+        });
       }
-
-
-
-      // this._addUserActivity(snapshot, {status:'OK'}).then( () => {
-      //   userInfo.wallet[currency] = Number(userInfo.wallet[currency]) + Number(amount);
-      //   ref.parent.parent.child('account').child(user).update(userInfo);
-      //   ref.remove();
-      // });
+    }).catch((reason) => {
+      console.error("User has not found!", reason);
     });
   }
 
@@ -97,7 +129,7 @@ class Consumers  {
     // console.log(snapshot.ref.path);
     const ref = snapshot.ref;
     const content = snapshot.val();
-    const {action, amount, currency, kind, price, status, symbol, user} = content;
+    const {action, amount, currency, price, status, symbol, user} = content;
     const key = snapshot.key;
     console.log(`Message ${key} is processing.. `);
 
@@ -111,6 +143,8 @@ class Consumers  {
         content.error = "Consuming error, user is undefined.";
         return ref.update(content).then((result) => {
           console.log(result);
+        }).catch((reason) => {
+          console.error("Message update has failed!", reason, content);
         });
       }
 
@@ -123,13 +157,17 @@ class Consumers  {
             const totalCost = Number(price) * Number(amount);
             if (Number(userInfo.wallet[currency]) < totalCost) {
               this._addUserActivity(snapshot, {status:'error', error:"Insufficient found."}).then( () => {
-                ref.remove();
+                ref.remove().catch((reason) => {
+                  console.error("Remove message has failed!", reason);
+                });
               });
             } else {
               this._addUserActivity(snapshot, {status:'OK'}).then( () => {
                 userInfo.wallet[currency] = Number(userInfo.wallet[currency]) - totalCost;
                 ref.parent.parent.child('account').child(user).update(userInfo);
-                ref.remove();
+                ref.remove().catch((reason) => {
+                  console.error("Remove message has failed!", reason);
+                });
               });
             }
           });
