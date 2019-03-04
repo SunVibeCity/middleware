@@ -1,7 +1,7 @@
 const firebase = require('firebase');
 
-const Consumers = require('./consumers');
-const consumers = new Consumers();
+const UserRequestConsumer = require('./consumers/user-request');
+const userRequestConsumer = new UserRequestConsumer();
 
 // Initialize Firebase
 
@@ -15,9 +15,13 @@ queueRef = fb.database().ref('/queue');
 
 queueRef.on('child_added', (snapshot) => {
   // consumers.log(snapshot);
-  consumers.proceed(snapshot);
+  userRequestConsumer.proceed(snapshot);
 });
 
+// fb.database().ref('/bids/SVT').orderByChild('amount').equalTo('30').on('child_added', (snapshot) => {
+//   consumers.log(snapshot);
+//   // consumers.proceed(snapshot);
+// });
 
 //
 // fb.database().ref('messages').push({
