@@ -1,5 +1,3 @@
-const firebase = require('firebase');
-
 
 class UserRequestConsumer  {
 
