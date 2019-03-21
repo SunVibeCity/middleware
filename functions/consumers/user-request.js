@@ -34,10 +34,10 @@ class UserRequestConsumer  {
     const ref = snapshot.ref;
     const {amount, currency, user} = snapshot.val();
     return ref.parent.parent.child('account').child(user).once( 'value', (userSnp) => {
-      const userInfo = userSnp.val();
-      // console.log(userInfo);
+      const userInfo = Object.assign({ book: { SVT: 0 }, wallet: { VND : 0} }, userSnp.val());
+      console.log(userInfo);
       // console.log(snapshot.val());
-      this._addUserActivity(snapshot, {status:'Done'}).then( () => {
+      this._addUserActivity(snapshot, {status:'done'}).then( () => {
         userInfo.wallet[currency] = Number(userInfo.wallet[currency]) + Number(amount);
         ref.parent.parent.child('account').child(user).update(userInfo).catch((reason) => {
           console.error("User update has failed!", reason, userInfo);
@@ -200,12 +200,12 @@ class UserRequestConsumer  {
     // console.log(snapshot.ref.path);
     const ref = snapshot.ref;
     const content = snapshot.val();
-    const {action, status, symbol, user} = content;
+    const {action, currency, status, symbol, user} = content;
     const key = snapshot.key;
     console.log(`Message ${key} is processing.. `);
 
     if (status === 'pending') {
-      const expression = symbol + action[0].toUpperCase() + action.substring(1);
+      const expression = (symbol !== undefined ? symbol : currency) + action[0].toUpperCase() + action.substring(1);
       if (user === undefined) {
         console.error("\tConsuming error, user is undefined", content);
         content.status = 'error';
@@ -220,11 +220,11 @@ class UserRequestConsumer  {
         case 'SVTBid':
         case 'SVTFokBid':
           return this._actionSVTBid(snapshot);
-        case 'VNDAdd':
-        case 'VNDFokAdd':
-          return this._actionVNDAdd(snapshot);
         case 'SVTAsk':
+        case 'SVTFokAsk':
           return this._actionSVTAsk(snapshot);
+        case 'VNDAdd':
+          return this._actionVNDAdd(snapshot);
         default:
           console.warn(`\tConsuming error ${key}: ${expression} has not implemented yet.`);
       }
