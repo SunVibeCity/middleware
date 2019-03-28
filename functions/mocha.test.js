@@ -9,9 +9,9 @@ function sleep(ms) {
 const accountIds = [
   "mochaTestAccountVNDAdd",
   "mochaTestAccountBid",
-  "mochaTestAccountASK",
+  "mochaTestAccountAsk",
   "mochaTestAccountFokBid",
-  "mochaTestAccountFokASK",
+  "mochaTestAccountFokAsk",
 ];
 const accountInfo = {
   book: {
@@ -121,8 +121,8 @@ describe("Basic trading test. Expects running background functions.", () => {
       //console.log(res);
       if (res !== null) {
         for (let key in res) {
-         // if (res[key].bidder === SVTBid.user && res[key].created === SVTBid.created) {
-          if (res[key].bidder === SVTBid.user) {
+         if (res[key].bidder === SVTBid.user && res[key].created === SVTBid.created) {
+         //  if (res[key].bidder === SVTBid.user) {
             bid = {ref: key, ...res[key]};
           }
         }
@@ -148,8 +148,8 @@ describe("Basic trading test. Expects running background functions.", () => {
       const res = snapshot.val();
       if (res !== null) {
         for (let key in res) {
-          // if (res[key].seller === SVTAsk.user && res[key].created === SVTAsk.created) {
-          if (res[key].seller === SVTAsk.user) {
+          if (res[key].seller === SVTAsk.user && res[key].created === SVTAsk.created) {
+          // if (res[key].seller === SVTAsk.user) {
             ask = {ref: key, ...res[key]};
           }
         }
@@ -175,12 +175,118 @@ describe("Checking results of the background processes functions.", () => {
   it("Wait 5 seconds for the messages to become consumed . .", async function () {
   });
   it(". . .", async function () {
-    await sleep(5000);
+   // await sleep(5000);
+  }).timeout(10000);
+  it(`Balance checks for ${accountIds[0]} account.`, async function () {
+    let res = accountInfo;
+    await fb.database().ref('/account/' + accountIds[0]).once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    assert.equal(res.wallet.VND, 11, "VND wallet is mismatch!")
+  }).timeout(10000);
+  it(`Balance checks for ${accountIds[1]} account.`, async function () {
+    let res = accountInfo;
+    await fb.database().ref('/account/' + accountIds[0]).once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    assert.equal(res.wallet.VND, 9, "VND wallet is mismatch!")
+    assert.equal(res.wallet.SVT, 11, "SVT book is mismatch!")
+  }).timeout(10000);
+  it(`Balance checks for ${accountIds[2]} account.`, async function () {
+    let res = accountInfo;
+    await fb.database().ref('/account/' + accountIds[0]).once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    assert.equal(res.wallet.VND, 11, "VND wallet is mismatch!")
+    assert.equal(res.wallet.SVT, 9, "SVT book is mismatch!")
+  }).timeout(10000);
+  it(`Balance checks for ${accountIds[3]} account.`, async function () {
+    let res = accountInfo;
+    await fb.database().ref('/account/' + accountIds[0]).once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    assert.equal(res.wallet.VND, 9, "VND wallet is mismatch!")
+    assert.equal(res.wallet.SVT, 11, "SVT book is mismatch!")
+  }).timeout(10000);
+  it(`Balance checks for ${accountIds[4]} account.`, async function () {
+    let res = accountInfo;
+    await fb.database().ref('/account/' + accountIds[0]).once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    assert.equal(res.wallet.VND, 11, "VND wallet is mismatch!")
+    assert.equal(res.wallet.SVT, 9, "SVT book is mismatch!")
   }).timeout(10000);
 });
 
-
 describe("Canceling offers and cleaning up..", () => {
+  it(`Clean up queue.`, async function () {
+    let res = {};
+    await fb.database().ref('/queue').once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    if (res !== null) {
+      for (let key in res) {
+        const found = accountIds.find((id) => {
+          return id === res[key].user
+        });
+        if (found !== undefined) {
+          await fb.database().ref('/queue/' + key).remove().catch(() => {
+            assert.fail("Remove queue message has failed!");
+          });
+        }
+      }
+    }
+  }).timeout(10000);
+  it(`Clean up asks.`, async function () {
+    let res = {};
+    await fb.database().ref('/asks').once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    if (res !== null) {
+      for (let key in res) {
+        const found = accountIds.find((id) => {
+          return id === res[key].seller
+        });
+        if (found !== undefined) {
+          await fb.database().ref('/asks/' + key).remove().catch(() => {
+            assert.fail("Remove ask message has failed!");
+          });
+        }
+      }
+    }
+  }).timeout(10000);
+  it(`Clean up bids.`, async function () {
+    let res = {};
+    await fb.database().ref('/bids').once('value', (snapshot) => {
+      res = snapshot.val();
+    });
+    if (res !== null) {
+      for (let key in res) {
+        const found = accountIds.find((id) => {
+          return id === res[key].bidder
+        });
+        if (found !== undefined) {
+          await fb.database().ref('/bids/' + key).remove().catch(() => {
+            assert.fail("Remove bid message has failed!");
+          });
+        }
+      }
+    }
+  }).timeout(10000);
+  it(`Clean up activities.`, async function () {
+    for (const accountId of accountIds) {
+      await fb.database().ref('/activity/' + accountId).remove().catch(() => {
+        assert.fail("Remove activity has failed!");
+      });
+    }
+  }).timeout(10000);
+  it(`Clean up accounts.`, async function () {
+    for (const accountId of accountIds) {
+      await fb.database().ref('/account/' + accountId).remove().catch(() => {
+        assert.fail("Remove account has failed!");
+      });
+    }
+  }).timeout(10000);
   it("Close database connection", async () => {
     fb.database().goOffline();
   });
