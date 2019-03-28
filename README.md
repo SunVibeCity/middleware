@@ -7,12 +7,14 @@ $ cd functions/
 functions$ node local.js
 ```
 
+## Test
+
+![Mocha Test](https://raw.githubusercontent.com/SunVibeCity/middleware/master/test.png "Mocha Test")
+
 ## Deploy
 ```
 $ firebase deploy --only functions
 ```
-
-
 
 
 ## HTTPS Load test
